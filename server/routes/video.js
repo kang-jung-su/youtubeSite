@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
-//const { Video } = require("../models/User");
+const { Video } = require("../models/Video");
 const multer = require("multer");
+var ffmpeg = require("fluent-ffmpeg");
+
 
 const { auth } = require("../middleware/auth");
+
+
 
 
 //STORAGE MULTER CONFIG
@@ -12,12 +16,12 @@ let storage = multer.diskStorage({
         cb(null, "uploads/");
     },
     filename:(req, file, cb)=>{
-        cb(null, `${Data.now()}_${file.originalname}`);
+        cb(null, `${Date.now()}_${file.originalname}`);
     },
     fileFilter:(req, file, cb)=>{
         const ext = path.extname(file.originalname);
-        if(ext !=='.txt'){
-            return cb(res.status(400).end('only txt is allowed'), false);
+        if(ext !=='.mp4'){
+            return cb(res.status(400).end('only mp4 is allowed'), false);
         }
         cb(null, true);
     }
@@ -38,5 +42,58 @@ router.post('/uploadfiles', (req, res)=>{
         return res.json({success:true, url: res.req.file.path})
     })
 })
+
+router.post('/uploadVideo', (req, res)=>{
+    //비디오 정보들을 저장한다.
+    const video = new Video(req.body)
+
+    video.save((err, doc)=>{
+        if(err) return res.json({success: false, err});
+        res.status(200).json({success:true});
+    });
+});
+
+router.post('/thumbnail', (req, res)=>{
+    
+    //썸네일 생성하고 비디오 러닝타임도 가져오기
+
+    let filePath="";
+    let fileDuration="";
+
+    //비디오 정보 가져오기
+    ffmpeg.ffprobe(req.body.url, function(err, metadata){
+        console.dir(metadata);
+        console.log(metadata.format.duration);
+        fileDuration = metadata.format.duration
+    });
+
+
+    //썸네일 생성
+    ffmpeg(req.body.url)
+        .on('filenames', function(filenames){
+            console.log('Will geberate ' + filenames.join(', '));
+            console.log(filenames);
+
+            filePath = "uploads/thumbnails/" + filenames[0]
+        })
+        .on('end', function(){
+            console.log('Screenshots taken');
+            return res.json({success: true, url: filePath, fileDuration: fileDuration});
+        })
+        .on('error', function(err){
+            console.error(err);
+            return res.json({success:false, err});
+        })
+        .screenshots({
+            //Will take screenshots at 20%, 40%, 60% and 80% of the video
+            count: 3,
+            folder: 'uploads/thumbnails',
+            size: '320x240',
+            //'%b': input basename (filename w/o extension)
+            filename: 'thumbnail-%b.png'
+        })
+})
+
+    
 
 module.exports = router;

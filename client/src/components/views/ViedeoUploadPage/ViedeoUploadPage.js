@@ -1,7 +1,8 @@
-import React,{useState} from "react";
+import React, {useState} from "react";
 import { Typography, Button, Form, message, Input, Icon} from 'antd';
 import Dropzone from 'react-dropzone';
 import Axios from 'axios';
+import { useSelector } from "react-redux";
 
 const {TextArea} = Input;
 const {Title} = Typography;
@@ -13,11 +14,14 @@ const CategoryOption =[
     {value:3, label:"Pets & Animals"}
     ]
 function VideoUploadPage() {
-
+    const user = useSelector(state => state.user);
     const [VideoTitle, setVideoTitle] = useState("");
     const [Description, setDescription] = useState("");
     const [Private, setPrivate] = useState(0);
     const [Category, setCategory] = useState("Film & Animation");
+    const [FilePath, setFilePath] = useState("");
+    const [Duration, setDuration] = useState("");
+    const [ThumbnailPath, setThumbnailPath] = useState("");
 
     const onTitleChange = (e) => {
         setVideoTitle(e.currentTarget.value);
@@ -32,7 +36,7 @@ function VideoUploadPage() {
         setCategory(e.currentTarget.value);
     }
     const onDrop = (files) =>{
-        let formData = new FormData;
+        let formData = new FormData();
         const config={
             header:{'content-type':'multipart/form-data'}
         }
@@ -41,12 +45,56 @@ function VideoUploadPage() {
         Axios.post('/api/video/uploadfiles', formData, config)
             .then(response => {
                 if(response.data.success){
-                    console.log(response.data)
+                    console.log(response.data);
+
+                    let variable = {
+                        url:response.data.url,
+                        fileName: response.data.fileName
+                    }
+
+                    setFilePath(response.data.url);
+
+                    Axios.post('/api/video/thumbnail', variable)
+                        .then(response=>{
+                            if(response.data.success){
+                                setDuration(response.data.fileDuration);
+                                setThumbnailPath(response.data.url);
+                            
+
+                            }else{
+                                alert("썸네일 생성에 실패 했습니다.");
+                            }
+                        })
+
+
                 }else{
                     alert('비디오 업로드를 실패했습니다.');
                 }
             })
 
+    }
+
+    const onSubmit= (e) => {
+        e.preventDefault();
+
+        const variables={
+            writer: user.userData._id,
+            title: VideoTitle,
+            description: Description,
+            privacy: Private,
+            filePath: FilePath,
+            category: Category,
+            duration: Duration,
+            thumbnail: ThumbnailPath,
+        }
+        Axios.post('/api/video/uploadVideo', variables)
+            .then(response=>{
+                if(response.data.success){
+                    console.log(response.data);
+                }else{
+                    alert('비디오 업로드에 실패 했습니다.');
+                }
+            })
     }
 
     return(
@@ -55,7 +103,7 @@ function VideoUploadPage() {
                 <Title level={2}>Uplad Video</Title>
             </div>
 
-            <Form onSubmit>
+            <Form onSubmit={onSubmit}>
                 <div style={{display:'flex', justifyContent: 'space-between'}}>
                     
                     {/* drop zone */}
@@ -78,9 +126,12 @@ function VideoUploadPage() {
                     </Dropzone>
 
                     {/* Thumbnail  */}
+                    {ThumbnailPath &&
                     <div>
-                        <img src alt />
+                        <img src={`http://localhost:5000/${ThumbnailPath}`} alt="thumbnail" />
                     </div>
+                    }
+
                 </div>
 
                 <br/>
@@ -123,8 +174,8 @@ function VideoUploadPage() {
 
                 <br/>
                 <br/>
-                  
-                <Button type="primary" size="large" onClick>Submit</Button>
+
+                <Button type="primary" size="large" onClick={onSubmit}>Submit</Button>
             </Form>
         </div>
     )
