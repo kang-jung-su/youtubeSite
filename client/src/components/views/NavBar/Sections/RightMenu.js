@@ -10,11 +10,12 @@ function RightMenu(props) {
   const user = useSelector(state => state.user)
 
   const logoutHandler = () => {
-    axios.get(`${USER_SERVER}/logout`).then(response => {
+    axios.get(`${USER_SERVER}/logout`)
+      .then(response => {
       if (response.status === 200) {
         props.history.push("/login");
       } else {
-        alert('Log Out Failed')
+        alert('로그아웃 하는데 실패했습니다.');
       }
     });
   };
